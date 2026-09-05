@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel RRHH — Comedores</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Montserrat:wght@800&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#F1F5F9;--surface:#fff;--ink:#0F172A;--ink-soft:#64748B;--border:#E2E8F0;--ok:#16A34A;--ok-bg:#F0FDF4;--accent:#DC2626;--accent-bg:#FEF2F2;--info:#1D4ED8;--warn:#92400E;--radius:12px;--shadow:0 1px 3px rgba(0,0,0,.08);}
+    *{box-sizing:border-box;margin:0;padding:0} body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+    #login-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;}
+    .login-box{background:var(--surface);padding:32px;border-radius:var(--radius);box-shadow:var(--shadow);width:100%;max-width:400px;text-align:center;}
+    .login-box h2{font-family:'Montserrat',sans-serif;margin-bottom:24px;}.login-box input{width:100%;padding:12px;margin-bottom:16px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;}
+    .login-box button{width:100%;padding:12px;background:var(--ink);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;}
+    #login-error{color:var(--accent);font-size:13px;margin-top:12px;display:none;} #app-content{display:none;}
+    .header{background:var(--ink);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10} .header h1{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800}
+    .main{max-width:1200px;margin:0 auto;padding:24px 16px}
+    .control-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:24px;display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:center;}
+    .control-group{display:flex;flex-direction:column;gap:8px;} .control-title{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);}
+    .btn{padding:10px 16px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;} .btn-blue{background:var(--info);color:#fff;} .btn-green{background:var(--ok);color:#fff;} .btn-red{background:var(--accent);color:#fff;} .btn-ghost{background:transparent;color:#fff;border:1px solid var(--border);padding:6px 12px;font-size:12px;}
+    input[type="file"]{font-size:13px;padding:8px;border:1px dashed var(--border);border-radius:8px;background:var(--bg);}
+    .status-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:700;}
+    .status-open{background:var(--ok-bg);color:var(--ok);border:1px solid #bbf7d0;} .status-closed{background:var(--accent-bg);color:var(--accent);border:1px solid #fecaca;}
+    .status-dot{width:8px;height:8px;border-radius:50%;} .status-open .status-dot{background:var(--ok);animation:pulse 1.5s infinite} .status-closed .status-dot{background:var(--accent);}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px} .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px} .stat-label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px} .stat-value{font-size:28px;font-weight:700;color:var(--ink);line-height:1} .stat-sub{font-size:12px;color:var(--ink-soft);margin-top:4px}
+    .comedores-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:28px} .comedor-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px} .comedor-nombre{font-size:15px;font-weight:700;margin-bottom:12px} .progress-row{margin-bottom:8px} .progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);margin-bottom:4px} .progress-bar-bg{width:100%;height:8px;background:#E2E8F0;border-radius:4px;overflow:hidden} .progress-fill{height:100%;border-radius:4px;transition:width .4s} .fill-ok{background:var(--ok)} .fill-warn{background:#F59E0B} .fill-full{background:var(--accent)} .comedor-total{font-size:12px;color:var(--ink-soft);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+    .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden} .table-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;} #search-input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:220px}
+    table{width:100%;border-collapse:collapse} th{padding:10px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);border-bottom:1px solid var(--border)} td{padding:12px 16px;font-size:13px;border-bottom:1px solid #F1F5F9}
+    .badge{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase} .badge-obrero{background:#E2E8F0;color:var(--ink)} .badge-empleado{background:#EFF6FF;color:var(--info)}
+  </style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <h2>Acceso RRHH</h2>
+    <input type="email" id="txt-email" placeholder="Correo electrónico">
+    <input type="password" id="txt-pass" placeholder="Contraseña">
+    <button onclick="iniciarSesion()">Ingresar al Panel</button>
+    <div id="login-error">Credenciales incorrectas. Intente de nuevo.</div>
+  </div>
+</div>
+
+<div id="app-content">
+  <div class="header">
+    <h1>Panel RRHH — Administración</h1>
+    <div style="display:flex; gap:15px; align-items:center;">
+      <div id="status-display" class="status-badge status-closed"><div class="status-dot"></div> <span id="status-text">Sistema Cerrado</span></div>
+      <button class="btn btn-ghost" onclick="cerrarSesion()">Cerrar Sesión</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="control-panel">
+      <div class="control-group">
+        <div class="control-title">1. Subir Base de Datos (Excel)</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="file" id="excel-file" accept=".xlsx, .xls" />
+          <button class="btn btn-blue" onclick="procesarExcel()">Cargar a Firebase</button>
+        </div>
+        <small style="color:var(--ink-soft);font-size:11px;">El archivo debe tener pestañas "CONTROL" y "CONTROL2"</small>
+      </div>
+      <div class="control-group">
+        <div class="control-title">2. Control del Turno</div>
+        <div style="display:flex; gap:10px;">
+          <button id="btn-toggle-sistema" class="btn btn-green" onclick="toggleSistema()">Abrir Sistema</button>
+          <button class="btn btn-red" onclick="limpiarRegistros()">Resetear (Nuevo Turno)</button>
+        </div>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Total registrados</div><div class="stat-value" id="stat-total">0</div><div class="stat-sub">de <span id="stat-padron">—</span> en padrón</div></div>
+      <div class="stat-card"><div class="stat-label">Obreros</div><div class="stat-value" id="stat-obreros">0</div></div>
+      <div class="stat-card"><div class="stat-label">Empleados</div><div class="stat-value" id="stat-empleados">0</div></div>
+      <div class="stat-card"><div class="stat-label">Última actualización</div><div class="stat-value" style="font-size:16px" id="stat-hora">—</div></div>
+    </div>
+    <div class="comedores-grid" id="comedores-grid"></div>
+    <div class="table-wrap">
+      <div class="table-header"><h3>Registros individuales</h3>
+        <div style="display:flex;gap:8px;"><input type="text" id="search-input" placeholder="Buscar nombre o DNI..."><button class="btn btn-green" onclick="exportarCSV()">⬇ Exportar CSV</button></div>
+      </div>
+      <div style="overflow-x:auto">
+        <table><thead><tr><th>#</th><th>DNI</th><th>Nombre</th><th>Categoría</th><th>Comedor</th><th>Hora</th></tr></thead><tbody id="tabla-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+let db, auth, LIMITES = {}, TRABAJADORES = {}, todosLosRegistros = [], sistemaActivo = false;
+document.addEventListener('DOMContentLoaded', () => {
+  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.database(); auth = firebase.auth();
+  auth.onAuthStateChanged(user => {
+    if (user) { document.getElementById('login-screen').style.display = 'none'; document.getElementById('app-content').style.display = 'block'; iniciarPanel(); }
+    else { document.getElementById('login-screen').style.display = 'flex'; document.getElementById('app-content').style.display = 'none'; }
+  });
+});
+function iniciarSesion() { auth.signInWithEmailAndPassword(document.getElementById('txt-email').value, document.getElementById('txt-pass').value).then(() => document.getElementById('login-error').style.display='none').catch(() => document.getElementById('login-error').style.display='block'); }
+function cerrarSesion() { auth.signOut(); }
+function iniciarPanel() {
+  db.ref('evento/datos_iniciales').on('value', snap => {
+    const data = snap.val() || {}; TRABAJADORES = data.trabajadores || {}; LIMITES = data.limites || {};
+    document.getElementById('stat-padron').textContent = Object.keys(TRABAJADORES).length; sistemaActivo = data.sistemaActivo || false; actualizarUIControlSistema();
+  });
+  db.ref('evento/conteos').on('value', snap => actualizarConteos(snap.val() || {}));
+  db.ref('evento/elecciones').on('value', snap => actualizarElecciones(snap.val() || {}));
+  document.getElementById('search-input').addEventListener('input', filtrarTabla);
+}
+function procesarExcel() {
+  const file = document.getElementById('excel-file').files[0]; if (!file) { alert("Selecciona un Excel."); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'}); let lim = {}, trab = {};
+      if (wb.Sheets['CONTROL']) { XLSX.utils.sheet_to_json(wb.Sheets['CONTROL'], {header: 1}).slice(1).forEach(f => { if(f[0]) lim[String(f[0]).trim()] = {obrero: parseInt(f[1])||0, empleado: parseInt(f[2])||0}; }); }
+      if (wb.Sheets['CONTROL2']) { XLSX.utils.sheet_to_json(wb.Sheets['CONTROL2'], {header: 1}).slice(1).forEach(f => { if(f[0]) trab[String(f[0]).trim().replace(/\D/g,'').padStart(8,'0')] = {nombre: String(f[1]||"").trim(), categoria: String(f[2]||"OBRERO").toUpperCase().trim()}; }); }
+      db.ref('evento/datos_iniciales').update({ limites: lim, trabajadores: trab }).then(() => alert(`Excel cargado.`));
+    } catch (er) { alert("Error al leer Excel."); }
+  }; reader.readAsArrayBuffer(file);
+}
+function toggleSistema() { const n = !sistemaActivo; if(confirm(n?"¿Abrir sistema?":"¿Cerrar sistema?")) db.ref('evento/datos_iniciales').update({ sistemaActivo: n, mensajeSistema: "La elección está cerrada." }); }
+function actualizarUIControlSistema() {
+  const btn = document.getElementById('btn-toggle-sistema'), bdg = document.getElementById('status-display'), txt = document.getElementById('status-text');
+  if (sistemaActivo) { btn.textContent = "Cerrar Sistema"; btn.className = "btn btn-red"; bdg.className = "status-badge status-open"; txt.textContent = "Sistema Abierto"; }
+  else { btn.textContent = "Abrir Sistema"; btn.className = "btn btn-green"; bdg.className = "status-badge status-closed"; txt.textContent = "Sistema Cerrado"; }
+}
+function limpiarRegistros() { if(sistemaActivo){alert("Primero CERRAR el sistema.");return;} if(prompt("Escribe 'BORRAR' para resetear:")==='BORRAR'){db.ref('evento/elecciones').remove(); db.ref('evento/conteos').remove(); alert("Reseteado.");} }
+function actualizarConteos(conteos) {
+  const grid = document.getElementById('comedores-grid'); grid.innerHTML = '';
+  Object.entries(LIMITES).forEach(([n, m]) => {
+    const d = conteos[n]||{}, uO = d.obrero||0, uE = d.empleado||0, lO = m.obrero||0, lE = m.empleado||0, t = uO+uE, lT = lO+lE, p = lT>0?Math.round(t/lT*100):0, c = p>=100?'fill-full':p>=80?'fill-warn':'fill-ok';
+    const card = document.createElement('div'); card.className = 'comedor-card';
+    card.innerHTML = `<div class="comedor-nombre">${n}</div>
+      <div class="progress-row"><div class="progress-label"><span>Obreros</span><span>${uO} / ${lO}</span></div><div class="progress-bar-bg"><div class="progress-fill fill-ok" style="width:${lO>0?Math.min(100,uO/lO*100):0}%"></div></div></div>
+      <div class="progress-row"><div class="progress-label"><span>Empleados</span><span>${uE} / ${lE}</span></div><div class="progress-bar-bg"><div class="progress-fill fill-ok" style="width:${lE>0?Math.min(100,uE/lE*100):0}%"></div></div></div>
+      <div class="comedor-total">Total: <strong>${t}</strong> de ${lT} · ${p}% ocupado<div class="progress-bar-bg" style="margin-top:6px"><div class="progress-fill ${c}" style="width:${Math.min(100,p)}%"></div></div></div>`;
+    grid.appendChild(card);
+  }); document.getElementById('stat-hora').textContent = new Date().toTimeString().slice(0, 8);
+}
+function actualizarElecciones(el) {
+  todosLosRegistros = Object.entries(el).map(([dni, r]) => ({ dni, ...r })).sort((a,b) => (b.timestamp||0)-(a.timestamp||0));
+  const t = todosLosRegistros.length, o = todosLosRegistros.filter(r=>r.categoria==='OBRERO').length;
+  document.getElementById('stat-total').textContent = t; document.getElementById('stat-obreros').textContent = o; document.getElementById('stat-empleados').textContent = t-o; filtrarTabla();
+}
+function filtrarTabla() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const f = q ? todosLosRegistros.filter(r => r.nombre?.toLowerCase().includes(q) || r.dni?.includes(q)) : todosLosRegistros;
+  const tb = document.getElementById('tabla-body'); tb.innerHTML = '';
+  if(!f.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">Sin registros</td></tr>`; return; }
+  f.forEach((r, i) => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${i+1}</td><td style="font-weight:600">${r.dni}</td><td>${r.nombre||'—'}</td><td><span class="badge badge-${(r.categoria||'').toLowerCase()}">${r.categoria||'—'}</span></td><td style="font-weight:600">${r.comedor||'—'}</td><td style="color:var(--ink-soft)">${r.fecha||'—'}</td>`; tb.appendChild(tr); });
+}
+function exportarCSV() {
+  const f = [['#','DNI','Nombre','Categoría','Comedor','Hora']]; todosLosRegistros.forEach((r,i) => f.push([i+1, r.dni, r.nombre, r.categoria, r.comedor, r.fecha]));
+  const blob = new Blob(['\uFEFF' + f.map(x=>x.map(v=>`"${v}"`).join(',')).join('\n')], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `eleccion-${new Date().toLocaleDateString('es-PE').replace(/\//g,'-')}.csv`; a.click();
+}
+</script>
+</body>
+</html>
