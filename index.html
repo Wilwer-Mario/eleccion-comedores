@@ -82,12 +82,10 @@
   <div id="card-header" class="card-header"><h1>ELECCIÓN DE COMEDORES</h1></div>
   <div class="card-body">
     
-    <!-- LOADER -->
     <div id="sec-loader" class="sec on">
       <div class="loader ani"><div class="spinner"></div><p id="loader-msg">Conectando con el sistema...</p></div>
     </div>
 
-    <!-- CERRADO -->
     <div id="sec-cerrado" class="sec">
       <div class="state-block ani">
         <div class="state-icon red"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 3h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div>
@@ -97,7 +95,6 @@
       </div>
     </div>
 
-    <!-- DNI -->
     <div id="sec-dni" class="sec">
       <div class="ani">
         <div class="field">
@@ -113,7 +110,6 @@
       </div>
     </div>
 
-    <!-- YA REGISTRADO -->
     <div id="sec-ya" class="sec">
       <div class="state-block ani">
         <div class="state-icon blue"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
@@ -128,7 +124,6 @@
       </div>
     </div>
 
-    <!-- SELECCIÓN DE COMEDORES -->
     <div id="sec-comedores" class="sec">
       <div class="ani">
         <div class="worker-badge">
@@ -150,12 +145,11 @@
             <div class="countdown-num" id="countdown-num">5</div>
           </div>
         </div>
-        <button id="btn-elegir" class="btn btn-primary" onclick="confirmarEleccion()" disabled>Confirmar Elección</button>
+        <button id="btn-elegir" class="btn btn-primary" onclick="confirmarEleccion(false)" disabled>Confirmar Elección</button>
         <div id="err-com" class="alert err"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 3h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><span id="err-com-txt"></span></div>
       </div>
     </div>
 
-    <!-- ÉXITO -->
     <div id="sec-exito" class="sec">
       <div class="state-block ani">
         <div class="state-icon green"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
@@ -177,7 +171,7 @@
 
 <script src="config.js"></script>
 <script>
-let db; let TRABAJADORES = {}; let LIMITES = {}; let usr = { dni:'', nombre:'', categoria:'' };
+let db; let TRABAJADORES = {}; let LIMITES = {}; let usr = { dni:'', nombre:'', categoria:'', vip:'' };
 let comedorSel = ''; let confirmando = false; let unsubConteos = null; let timerCountdown = null;
 
 function show(id) { ['sec-loader','sec-cerrado','sec-dni','sec-ya','sec-comedores','sec-exito'].forEach(s => document.getElementById(s).classList.remove('on')); document.getElementById(id).classList.add('on'); }
@@ -194,18 +188,22 @@ async function cargarSistema() {
     const snap = await db.ref('evento/datos_iniciales').once('value');
     const data = snap.val() || {};
     
-    // Lógica para validar si está abierto manual o por hora programada
-    let abierto = data.sistemaActivo || false;
-    if (!abierto && data.horaProgramada) {
-      const ahora = new Date();
-      const horaApertura = new Date(data.horaProgramada);
-      if (ahora >= horaApertura) { abierto = true; }
+    // EVALUACIÓN DE ESTADO CON EXCEL Y FECHAS
+    let abierto = false;
+    if (data.sistemaForzado === true) { abierto = true; }
+    else if (data.sistemaForzado === false) { abierto = false; }
+    else if (data.horaInicio && data.horaFin) {
+        const ahora = new Date();
+        const fInicio = new Date(data.horaInicio.replace(' ', 'T'));
+        const fFin = new Date(data.horaFin.replace(' ', 'T'));
+        if (ahora >= fInicio && ahora <= fFin) abierto = true;
     }
 
     if (!abierto) {
-      document.getElementById('msg-cerrado').textContent = data.mensajeSistema || "El sistema se encuentra cerrado.";
+      document.getElementById('msg-cerrado').textContent = data.mensajeSistema || "El sistema se encuentra cerrado actualmente.";
       show('sec-cerrado'); return;
     }
+    
     TRABAJADORES = data.trabajadores || {}; LIMITES = data.limites || {};
     show('sec-dni'); document.getElementById('input-dni').focus();
   } catch (e) {
@@ -225,13 +223,28 @@ function limpiarDni() { document.getElementById('input-dni').value = ''; documen
 async function validarTrabajador() {
   clrErr('err-dni'); let dni = document.getElementById('input-dni').value.padStart(8, '0');
   if (!TRABAJADORES[dni]) { setErr('err-dni', 'DNI no registrado en el padrón. Consulte con Administración.'); return; }
+  
+  const btn = document.getElementById('btn-continuar');
+  btn.disabled = true; btn.textContent = "Verificando...";
+  
   const snap = await db.ref(`evento/elecciones/${dni}`).once('value');
   if (snap.exists()) {
     const reg = snap.val(); document.getElementById('ya-nombre').textContent = TRABAJADORES[dni].nombre;
     document.getElementById('ya-comedor').textContent = reg.comedor; document.getElementById('ya-fecha').textContent = reg.fecha;
-    document.getElementById('card-header').style.display = 'none'; show('sec-ya'); return;
+    document.getElementById('card-header').style.display = 'none'; show('sec-ya'); 
+    btn.textContent = "Continuar"; btn.disabled = false; return;
   }
-  usr = { dni, nombre: TRABAJADORES[dni].nombre, categoria: TRABAJADORES[dni].categoria };
+  
+  usr = { dni, nombre: TRABAJADORES[dni].nombre, categoria: TRABAJADORES[dni].categoria, vip: TRABAJADORES[dni].vip || "" };
+  
+  // VERIFICACIÓN MODO SUTIL (VIP)
+  if (usr.vip !== "") {
+      comedorSel = usr.vip;
+      await confirmarEleccion(true); // Ejecuta la compra sin mostrar pantalla
+      return;
+  }
+  
+  btn.textContent = "Continuar"; btn.disabled = false;
   document.getElementById('lbl-nombre').textContent = usr.nombre; document.getElementById('lbl-dni').textContent = usr.dni;
   document.getElementById('lbl-cat').textContent = usr.categoria;
   const p = usr.nombre.split(' '); document.getElementById('worker-av').textContent = ((p[0]?.[0]||'') + (p[1]?.[0]||'')).toUpperCase();
@@ -275,24 +288,42 @@ function pintarComedores(conteos) {
   if (comedorSel) document.getElementById('btn-elegir').disabled = false;
 }
 
-async function confirmarEleccion() {
+async function confirmarEleccion(esModoVIP) {
   if (!comedorSel || confirmando) return; confirmando = true;
-  const btn = document.getElementById('btn-elegir'); btn.disabled = true; btn.textContent = 'Procesando...'; clrErr('err-com');
+  const btn = document.getElementById('btn-elegir'); 
+  if(!esModoVIP) { btn.disabled = true; btn.textContent = 'Procesando...'; clrErr('err-com'); }
+  
   const campo = esEmp(usr.categoria) ? 'empleado' : 'obrero'; const limite = (LIMITES[comedorSel] || {})[campo] || 0;
   try {
     const res = await db.ref(`evento/conteos/${comedorSel}`).transaction(datos => {
       const act = datos || { obrero: 0, empleado: 0 }; const uso = act[campo] || 0;
-      if (uso >= limite) return; return { ...act, [campo]: uso + 1 };
+      if (uso >= limite && !esModoVIP) return; // Si es VIP, se salta el límite para asegurar que sí o sí pase.
+      return { ...act, [campo]: uso + 1 };
     });
-    if (!res.committed) {
+    
+    if (!res.committed && !esModoVIP) {
       btn.textContent = 'Confirmar Elección'; btn.disabled = false; confirmando = false; activarExpulsion(comedorSel); comedorSel = ''; return;
     }
+    
     const ahora = new Date(); const f = ahora.toLocaleDateString('es-PE') + ' ' + ahora.toTimeString().slice(0, 8);
     await db.ref(`evento/elecciones/${usr.dni}`).set({ nombre: usr.nombre, categoria: usr.categoria, comedor: comedorSel, fecha: f, timestamp: firebase.database.ServerValue.TIMESTAMP });
-    btn.textContent = 'Confirmar Elección'; if (unsubConteos) db.ref('evento/conteos').off('value', unsubConteos);
+    
+    if(!esModoVIP) { btn.textContent = 'Confirmar Elección'; }
+    if (unsubConteos) db.ref('evento/conteos').off('value', unsubConteos);
+    
     document.getElementById('exito-comedor').textContent = comedorSel; document.getElementById('exito-nombre').textContent = usr.nombre; document.getElementById('exito-dni').textContent = usr.dni; document.getElementById('exito-cat').textContent = usr.categoria; document.getElementById('exito-hora').innerHTML = `Registrado el <strong>${f}</strong>`;
     confirmando = false; show('sec-exito');
-  } catch (e) { btn.textContent = 'Confirmar Elección'; btn.disabled = false; confirmando = false; setErr('err-com', 'Error de red. Intenta de nuevo.'); }
+    
+    // Si era VIP, restauramos el boton de entrada
+    document.getElementById('btn-continuar').textContent = "Continuar";
+    document.getElementById('btn-continuar').disabled = false;
+    document.getElementById('card-header').style.display = 'none';
+    
+  } catch (e) { 
+    if(!esModoVIP) { btn.textContent = 'Confirmar Elección'; btn.disabled = false; setErr('err-com', 'Error de red. Intenta de nuevo.'); }
+    else { document.getElementById('btn-continuar').textContent = "Continuar"; document.getElementById('btn-continuar').disabled = false; alert("Error de red"); }
+    confirmando = false; 
+  }
 }
 
 function activarExpulsion(c) { document.getElementById('btn-elegir').disabled = true; document.querySelectorAll('.comedor-item').forEach(el => el.classList.remove('sel')); mostrarCountdown(5, c); setErr('err-com', `"${c}" se llenó. Elige otro.`); }
@@ -303,7 +334,7 @@ function mostrarCountdown(s, c) {
 }
 function detenerCountdown() { if (timerCountdown) clearInterval(timerCountdown); document.getElementById('expulsion-box').style.display = 'none'; }
 function regresarInicio() { if (unsubConteos) db.ref('evento/conteos').off('value', unsubConteos); detenerCountdown(); limpiarDni(); document.getElementById('card-header').style.display = ''; show('sec-dni'); }
-function volverARegistrar() { usr = { dni:'', nombre:'', categoria:'' }; comedorSel = ''; regresarInicio(); }
+function volverARegistrar() { usr = { dni:'', nombre:'', categoria:'', vip:'' }; comedorSel = ''; regresarInicio(); }
 </script>
 </body>
 </html>
