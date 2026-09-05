@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Panel RRHH — Comedores</title>
+  <title>Panel de Control</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -19,10 +19,10 @@
     #login-error{color:var(--accent);font-size:13px;margin-top:12px;display:none;} #app-content{display:none;}
     .header{background:var(--ink);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10} .header h1{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800}
     .main{max-width:1200px;margin:0 auto;padding:24px 16px}
-    .control-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:24px;display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:center;}
+    .control-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start;}
     .control-group{display:flex;flex-direction:column;gap:8px;} .control-title{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);}
     .btn{padding:10px 16px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;} .btn-blue{background:var(--info);color:#fff;} .btn-green{background:var(--ok);color:#fff;} .btn-red{background:var(--accent);color:#fff;} .btn-ghost{background:transparent;color:#fff;border:1px solid var(--border);padding:6px 12px;font-size:12px;}
-    input[type="file"]{font-size:13px;padding:8px;border:1px dashed var(--border);border-radius:8px;background:var(--bg);}
+    input[type="file"], input[type="datetime-local"]{font-size:13px;padding:8px;border:1px dashed var(--border);border-radius:8px;background:var(--bg);}
     .status-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:700;}
     .status-open{background:var(--ok-bg);color:var(--ok);border:1px solid #bbf7d0;} .status-closed{background:var(--accent-bg);color:var(--accent);border:1px solid #fecaca;}
     .status-dot{width:8px;height:8px;border-radius:50%;} .status-open .status-dot{background:var(--ok);animation:pulse 1.5s infinite} .status-closed .status-dot{background:var(--accent);}
@@ -38,7 +38,7 @@
 
 <div id="login-screen">
   <div class="login-box">
-    <h2>Acceso RRHH</h2>
+    <h2>Acceso Seguro</h2>
     <input type="email" id="txt-email" placeholder="Correo electrónico">
     <input type="password" id="txt-pass" placeholder="Contraseña">
     <button onclick="iniciarSesion()">Ingresar al Panel</button>
@@ -48,7 +48,7 @@
 
 <div id="app-content">
   <div class="header">
-    <h1>Panel RRHH — Administración</h1>
+    <h1>Panel de Control</h1>
     <div style="display:flex; gap:15px; align-items:center;">
       <div id="status-display" class="status-badge status-closed"><div class="status-dot"></div> <span id="status-text">Sistema Cerrado</span></div>
       <button class="btn btn-ghost" onclick="cerrarSesion()">Cerrar Sesión</button>
@@ -56,32 +56,45 @@
   </div>
   <div class="main">
     <div class="control-panel">
+      <!-- 1. Excel -->
       <div class="control-group">
         <div class="control-title">1. Subir Base de Datos (Excel)</div>
         <div style="display:flex; gap:10px; align-items:center;">
           <input type="file" id="excel-file" accept=".xlsx, .xls" />
           <button class="btn btn-blue" onclick="procesarExcel()">Cargar a Firebase</button>
         </div>
-        <small style="color:var(--ink-soft);font-size:11px;">El archivo debe tener pestañas "CONTROL" y "CONTROL2"</small>
       </div>
+      <!-- 2. Programar Hora -->
       <div class="control-group">
-        <div class="control-title">2. Control del Turno</div>
+        <div class="control-title">2. Programar Apertura Automática</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="datetime-local" id="hora-apertura" style="border-style:solid;" />
+          <button class="btn btn-blue" onclick="guardarProgramacion()">Fijar Hora</button>
+        </div>
+        <small style="color:var(--ink-soft);font-size:11px;">El sistema se abrirá solo al llegar a esta hora.</small>
+      </div>
+      <!-- 3. Botones Manuales -->
+      <div class="control-group">
+        <div class="control-title">3. Acciones Manuales</div>
         <div style="display:flex; gap:10px;">
-          <button id="btn-toggle-sistema" class="btn btn-green" onclick="toggleSistema()">Abrir Sistema</button>
-          <button class="btn btn-red" onclick="limpiarRegistros()">Resetear (Nuevo Turno)</button>
+          <button id="btn-toggle-sistema" class="btn btn-green" onclick="toggleSistema()">Forzar Apertura</button>
+          <button class="btn btn-red" onclick="limpiarRegistros()">Resetear Turno</button>
         </div>
       </div>
     </div>
+    
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-label">Total registrados</div><div class="stat-value" id="stat-total">0</div><div class="stat-sub">de <span id="stat-padron">—</span> en padrón</div></div>
       <div class="stat-card"><div class="stat-label">Obreros</div><div class="stat-value" id="stat-obreros">0</div></div>
       <div class="stat-card"><div class="stat-label">Empleados</div><div class="stat-value" id="stat-empleados">0</div></div>
       <div class="stat-card"><div class="stat-label">Última actualización</div><div class="stat-value" style="font-size:16px" id="stat-hora">—</div></div>
     </div>
+    
     <div class="comedores-grid" id="comedores-grid"></div>
+    
     <div class="table-wrap">
       <div class="table-header"><h3>Registros individuales</h3>
-        <div style="display:flex;gap:8px;"><input type="text" id="search-input" placeholder="Buscar nombre o DNI..."><button class="btn btn-green" onclick="exportarCSV()">⬇ Exportar CSV</button></div>
+        <div style="display:flex;gap:8px;"><input type="text" id="search-input" placeholder="Buscar nombre o DNI..."><button class="btn btn-green" onclick="exportarExcel()">⬇ Descargar Excel</button></div>
       </div>
       <div style="overflow-x:auto">
         <table><thead><tr><th>#</th><th>DNI</th><th>Nombre</th><th>Categoría</th><th>Comedor</th><th>Hora</th></tr></thead><tbody id="tabla-body"></tbody></table>
@@ -106,7 +119,9 @@ function cerrarSesion() { auth.signOut(); }
 function iniciarPanel() {
   db.ref('evento/datos_iniciales').on('value', snap => {
     const data = snap.val() || {}; TRABAJADORES = data.trabajadores || {}; LIMITES = data.limites || {};
-    document.getElementById('stat-padron').textContent = Object.keys(TRABAJADORES).length; sistemaActivo = data.sistemaActivo || false; actualizarUIControlSistema();
+    document.getElementById('stat-padron').textContent = Object.keys(TRABAJADORES).length; sistemaActivo = data.sistemaActivo || false; 
+    if(data.horaProgramada) document.getElementById('hora-apertura').value = data.horaProgramada;
+    actualizarUIControlSistema(); actualizarConteos({});
   });
   db.ref('evento/conteos').on('value', snap => actualizarConteos(snap.val() || {}));
   db.ref('evento/elecciones').on('value', snap => actualizarElecciones(snap.val() || {}));
@@ -124,13 +139,18 @@ function procesarExcel() {
     } catch (er) { alert("Error al leer Excel."); }
   }; reader.readAsArrayBuffer(file);
 }
-function toggleSistema() { const n = !sistemaActivo; if(confirm(n?"¿Abrir sistema?":"¿Cerrar sistema?")) db.ref('evento/datos_iniciales').update({ sistemaActivo: n, mensajeSistema: "La elección está cerrada." }); }
+function guardarProgramacion() {
+  const hora = document.getElementById('hora-apertura').value;
+  if(!hora){ alert("Selecciona una fecha y hora"); return; }
+  db.ref('evento/datos_iniciales').update({ horaProgramada: hora }).then(() => alert("Apertura programada con éxito."));
+}
+function toggleSistema() { const n = !sistemaActivo; if(confirm(n?"¿Forzar apertura manual?":"¿Cerrar sistema?")) db.ref('evento/datos_iniciales').update({ sistemaActivo: n }); }
 function actualizarUIControlSistema() {
   const btn = document.getElementById('btn-toggle-sistema'), bdg = document.getElementById('status-display'), txt = document.getElementById('status-text');
   if (sistemaActivo) { btn.textContent = "Cerrar Sistema"; btn.className = "btn btn-red"; bdg.className = "status-badge status-open"; txt.textContent = "Sistema Abierto"; }
-  else { btn.textContent = "Abrir Sistema"; btn.className = "btn btn-green"; bdg.className = "status-badge status-closed"; txt.textContent = "Sistema Cerrado"; }
+  else { btn.textContent = "Forzar Apertura"; btn.className = "btn btn-green"; bdg.className = "status-badge status-closed"; txt.textContent = "Sistema Cerrado"; }
 }
-function limpiarRegistros() { if(sistemaActivo){alert("Primero CERRAR el sistema.");return;} if(prompt("Escribe 'BORRAR' para resetear:")==='BORRAR'){db.ref('evento/elecciones').remove(); db.ref('evento/conteos').remove(); alert("Reseteado.");} }
+function limpiarRegistros() { if(sistemaActivo){alert("Primero CERRAR el sistema.");return;} if(prompt("Escribe 'BORRAR' para resetear:")==='BORRAR'){db.ref('evento/elecciones').remove(); db.ref('evento/conteos').remove(); db.ref('evento/datos_iniciales/horaProgramada').remove(); alert("Reseteado.");} }
 function actualizarConteos(conteos) {
   const grid = document.getElementById('comedores-grid'); grid.innerHTML = '';
   Object.entries(LIMITES).forEach(([n, m]) => {
@@ -155,10 +175,19 @@ function filtrarTabla() {
   if(!f.length) { tb.innerHTML = `<tr><td colspan="6" class="empty">Sin registros</td></tr>`; return; }
   f.forEach((r, i) => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${i+1}</td><td style="font-weight:600">${r.dni}</td><td>${r.nombre||'—'}</td><td><span class="badge badge-${(r.categoria||'').toLowerCase()}">${r.categoria||'—'}</span></td><td style="font-weight:600">${r.comedor||'—'}</td><td style="color:var(--ink-soft)">${r.fecha||'—'}</td>`; tb.appendChild(tr); });
 }
-function exportarCSV() {
-  const f = [['#','DNI','Nombre','Categoría','Comedor','Hora']]; todosLosRegistros.forEach((r,i) => f.push([i+1, r.dni, r.nombre, r.categoria, r.comedor, r.fecha]));
-  const blob = new Blob(['\uFEFF' + f.map(x=>x.map(v=>`"${v}"`).join(',')).join('\n')], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `eleccion-${new Date().toLocaleDateString('es-PE').replace(/\//g,'-')}.csv`; a.click();
+function exportarExcel() {
+  if (todosLosRegistros.length === 0) { alert("No hay datos para exportar."); return; }
+  const datosParaExcel = todosLosRegistros.map(r => ({
+    "Marca temporal": r.fecha,
+    "DNI": r.dni,
+    "DATOS PERSONALES": r.nombre,
+    "CATEGORIA": r.categoria,
+    "SELECIONA EL COMEDOR": r.comedor
+  }));
+  const worksheet = XLSX.utils.json_to_sheet(datosParaExcel);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Control Comedores");
+  XLSX.writeFile(workbook, `Reporte_Comedores_${new Date().toLocaleDateString('es-PE').replace(/\//g,'-')}.xlsx`);
 }
 </script>
 </body>

@@ -193,7 +193,16 @@ async function cargarSistema() {
     db = firebase.database();
     const snap = await db.ref('evento/datos_iniciales').once('value');
     const data = snap.val() || {};
-    if (!data.sistemaActivo) {
+    
+    // Lógica para validar si está abierto manual o por hora programada
+    let abierto = data.sistemaActivo || false;
+    if (!abierto && data.horaProgramada) {
+      const ahora = new Date();
+      const horaApertura = new Date(data.horaProgramada);
+      if (ahora >= horaApertura) { abierto = true; }
+    }
+
+    if (!abierto) {
       document.getElementById('msg-cerrado').textContent = data.mensajeSistema || "El sistema se encuentra cerrado.";
       show('sec-cerrado'); return;
     }
